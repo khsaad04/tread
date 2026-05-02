@@ -40,17 +40,26 @@ pub enum LogLevel {
 
 macro_rules! log {
     ($loglevel:ident, $($arg:tt)*) => {
+        use std::io::IsTerminal;
+        let is_tty = std::io::stdout().is_terminal(); // To ensure ansi escape codes are supported.
+
+        let (ansi_red, ansi_yellow, ansi_green, ansi_reset) = if is_tty {
+            ("\x1b[0;31m", "\x1b[0;33m", "\x1b[0;32m", "\x1b[0m")
+        } else {
+            ("", "", "", "")
+        };
+
         match LogLevel::$loglevel {
             LogLevel::Info => {
-                print!("\x1b[0;32mINFO\x1b[0m: ");
+                print!("{ansi_green}INFO{ansi_reset}: ");
                 println!($($arg)*);
             }
             LogLevel::Warning => {
-                print!("\x1b[0;33mWARNING\x1b[0m: ");
+                print!("{ansi_yellow}WARNING{ansi_reset}: ");
                 println!($($arg)*);
             }
             LogLevel::Error => {
-                eprint!("\x1b[0;31mERROR\x1b[0m: ");
+                eprint!("{ansi_red}ERROR{ansi_reset}: ");
                 eprintln!($($arg)*);
             }
         }
