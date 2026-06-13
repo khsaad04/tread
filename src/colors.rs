@@ -1,7 +1,7 @@
 use crate::{Result, TemplateContext};
 
 use material_colors::{blend::harmonize, color::Argb, dynamic_color::Variant, theme::ThemeBuilder};
-use quantette::{image, PalettePipeline};
+use quantette::{ImageBuf, PaletteSize, Pipeline, QuantizeMethod};
 use std::{collections::HashMap, path::Path};
 
 pub fn generate_material_colors(
@@ -18,13 +18,17 @@ pub fn generate_material_colors(
             )
         })?
         .into_rgb8();
-    let mut pipeline = PalettePipeline::try_from(&img).map_err(|err| {
-        format!(
-            "Could not color quantize wallpaper {}: {err}",
-            wallpaper_path.display()
-        )
-    })?;
-    let quantized_palette = pipeline.palette_size(1).palette_par();
+    let img = ImageBuf::try_from(img).unwrap();
+    let pipeline = Pipeline::new();
+    let quantized_palette = pipeline
+        .palette_size(PaletteSize::MIN)
+        .quantize_method(QuantizeMethod::kmeans())
+        .ditherer(None)
+        .parallel(true)
+        .input_image(img.as_ref())
+        .output_srgb8_palette()
+        .map(|palette| palette.into_vec())
+        .unwrap_or_default();
     let color = Argb::new(
         255,
         quantized_palette[0].red,
@@ -63,7 +67,7 @@ pub fn generate_material_colors(
         _ => {
             return Err(
                 format!("invalid theme {theme}\nPossible values: \"dark\", \"light\"").into(),
-            )
+            );
         }
     }
 

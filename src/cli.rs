@@ -107,7 +107,9 @@ impl Cli {
                                     })?)
                                 }
                                 _ => {
-                                    return Err(format!("invalid option {arg}\n{SYNC_USAGE}").into())
+                                    return Err(
+                                        format!("invalid option {arg}\n{SYNC_USAGE}").into()
+                                    );
                                 }
                             }
                         }
@@ -134,7 +136,9 @@ impl Cli {
                                     })?)
                                 }
                                 _ => {
-                                    return Err(format!("invalid option {arg}\n{LINK_USAGE}").into())
+                                    return Err(
+                                        format!("invalid option {arg}\n{LINK_USAGE}").into()
+                                    );
                                 }
                             }
                         }
@@ -161,7 +165,7 @@ impl Cli {
                                 _ => {
                                     return Err(
                                         format!("invalid option {arg}\n{GENERATE_USAGE}").into()
-                                    )
+                                    );
                                 }
                             }
                         }
