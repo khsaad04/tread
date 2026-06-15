@@ -4,10 +4,8 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-flagge = { git = "https://github.com/khsaad04/flagge" }
-image = "0.25.10"
-material-colors = "0.4.2"
-quantette = "0.6.0"
+flagge = { git = "https://github.com/khsaad04/flagge.git", version = "0.1.0" }
+material-colors = { version = "0.4.2", features = ["image"] }
 serde = { version = "1.0.228", features = ["derive"] }
 toml = "1.1.2"
-upon = { version = "0.10.0", default-features = false, features = ["serde"] }
+upon = "0.10.0"

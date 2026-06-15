@@ -1,7 +1,15 @@
 use crate::{Result, TemplateContext};
 
-use material_colors::{blend::harmonize, color::Argb, dynamic_color::Variant, theme::ThemeBuilder};
-use quantette::{ImageBuf, PaletteSize, Pipeline, QuantizeMethod};
+use material_colors::{
+    blend::harmonize,
+    color::Argb,
+    dynamic_color::Variant,
+    hct::Cam16,
+    image::{AsPixels, FilterType, ImageReader},
+    quantize::{Quantizer, QuantizerCelebi},
+    score::Score,
+    theme::ThemeBuilder,
+};
 use std::{collections::HashMap, path::Path};
 
 pub fn generate_material_colors(
@@ -10,31 +18,25 @@ pub fn generate_material_colors(
     variant: &str,
     context: &mut TemplateContext,
 ) -> Result<()> {
-    let img = image::open(wallpaper_path)
-        .map_err(|err| {
-            format!(
-                "Could not load wallpaper {}: {err}",
-                wallpaper_path.display()
-            )
-        })?
-        .into_rgb8();
-    let img = ImageBuf::try_from(img).unwrap();
-    let pipeline = Pipeline::new();
-    let quantized_palette = pipeline
-        .palette_size(PaletteSize::MIN)
-        .quantize_method(QuantizeMethod::kmeans())
-        .ditherer(None)
-        .parallel(true)
-        .input_image(img.as_ref())
-        .output_srgb8_palette()
-        .map(|palette| palette.into_vec())
-        .unwrap_or_default();
-    let color = Argb::new(
-        255,
-        quantized_palette[0].red,
-        quantized_palette[0].green,
-        quantized_palette[0].blue,
-    );
+    let mut img = ImageReader::open(wallpaper_path).map_err(|err| {
+        format!(
+            "Could not load wallpaper {}: {err}",
+            wallpaper_path.display()
+        )
+    })?;
+    img.resize(112, 112, FilterType::Triangle);
+    let pixels = img
+        .as_pixels()
+        .iter()
+        .copied()
+        .filter(|argb| argb.alpha == 255)
+        .collect::<Vec<_>>();
+    let mut quantized = QuantizerCelebi::quantize(&pixels, 128);
+    quantized
+        .color_to_count
+        .retain(|&argb, _| Cam16::from(argb).chroma >= 5.0);
+    let ranked = Score::score(&quantized.color_to_count, None, None, None);
+    let source_color = ranked.first().copied().unwrap();
 
     let variant = match variant {
         "monochrome" => Variant::Monochrome,
@@ -49,7 +51,9 @@ pub fn generate_material_colors(
         _ => return Err(format!("invalid variant {variant}\nPossible values: \"monochrome\", \"neutral\", \"tonal_spot\", \"vibrant\", \"expressive\", \"fidelity\", \"content\", \"rainbow\", \"fruit_salad\"").into()),
     };
 
-    let color_palette = ThemeBuilder::with_source(color).variant(variant).build();
+    let color_palette = ThemeBuilder::with_source(source_color)
+        .variant(variant)
+        .build();
 
     context.insert("source_color".to_string(), color_palette.source.to_hex());
 
@@ -71,7 +75,7 @@ pub fn generate_material_colors(
         }
     }
 
-    generate_terminal_ansi_colors(context, color);
+    generate_terminal_ansi_colors(context, source_color);
     context.insert("theme".to_string(), theme.to_string());
     Ok(())
 }
